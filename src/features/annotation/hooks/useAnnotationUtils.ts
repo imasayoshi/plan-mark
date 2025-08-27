@@ -151,7 +151,7 @@ export const useAnnotationUtils = () => {
     const lineCount = Math.max(lines.length, 1);
 
     const baseCharWidth = 7.0; // 半角文字幅を設定
-    const zenkakuRatio = 1.3; // 全角は半角の1.3倍
+    const zenkakuRatio = 1.4; // 全角は半角の1.4倍
     const lineHeight = 16; // 11px * 1.3 + 余裕
     const paddingSpace = 18;
 
