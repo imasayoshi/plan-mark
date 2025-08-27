@@ -33,7 +33,7 @@ const schema = a.schema({
       type: a.enum(["rectangle", "circle", "arrow", "polygon"]), // 図形種別
       x: a.float(), // X座標
       y: a.float(), // Y座標
-      color: a.string().default("#3b82f6"), // 色
+      color: a.string().default("#ef4444"), // 色
       strokeWidth: a.float().default(2), // 線の太さ
       properties: a.json(), // 図形固有プロパティ（width, height, radius, endX, endY, points等）
     })

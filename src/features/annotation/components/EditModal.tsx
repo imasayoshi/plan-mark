@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import type { EditModalPropsType } from "../types/annotation";
 import { useAnnotationUtils } from "../hooks/useAnnotationUtils";
 
@@ -9,8 +10,19 @@ export function EditModal({
   onCompositionEnd,
   onSave,
   onCancel,
+  onDelete,
 }: EditModalPropsType) {
   const { MAX_CHARS_PER_LINE } = useAnnotationUtils();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 編集モードの場合（annotation.idがある場合）、カーソルを最後に移動
+  useEffect(() => {
+    if (annotation?.id && textareaRef.current && content) {
+      const textarea = textareaRef.current;
+      textarea.focus();
+      textarea.setSelectionRange(content.length, content.length);
+    }
+  }, [annotation?.id, content]);
 
   if (!annotation) return null;
 
@@ -45,11 +57,12 @@ export function EditModal({
             color: "#333",
           }}
         >
-          コメント入力
+          {annotation?.id ? "コメント編集" : "コメント入力"}
         </h3>
 
         <textarea
-          autoFocus
+          ref={textareaRef}
+          autoFocus={!annotation?.id} // 新規作成時のみautoFocus
           value={content}
           onChange={(e) => onContentChange(e.target.value)}
           onCompositionStart={onCompositionStart}
@@ -86,36 +99,66 @@ export function EditModal({
             display: "flex",
             gap: "12px",
             marginTop: "20px",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
           }}
         >
-          <button
-            onClick={onCancel}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#f3f4f6",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={onSave}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#3b82f6",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            保存
-          </button>
+          {/* 左側: 削除ボタン（編集時のみ表示） */}
+          <div>
+            {annotation?.id && onDelete && (
+              <button
+                onClick={onDelete}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#b91c1c";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#dc2626";
+                }}
+              >
+                削除
+              </button>
+            )}
+          </div>
+
+          {/* 右側: キャンセル・保存ボタン */}
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button
+              onClick={onCancel}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#f3f4f6",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={onSave}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              保存
+            </button>
+          </div>
         </div>
       </div>
     </div>

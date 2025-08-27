@@ -6,6 +6,37 @@ import type {
   PolygonShape,
 } from "../types/shape";
 
+function HatchPattern({ id, color }: { id: string; color: string }) {
+  return (
+    <pattern
+      id={id}
+      patternUnits="userSpaceOnUse"
+      width="6"
+      height="6"
+      patternTransform="rotate(45)"
+    >
+      <line
+        x1="0"
+        y1="0"
+        x2="0"
+        y2="6"
+        stroke={color}
+        strokeWidth="1.5"
+        opacity="0.6"
+      />
+      <line
+        x1="3"
+        y1="0"
+        x2="3"
+        y2="6"
+        stroke={color}
+        strokeWidth="1.5"
+        opacity="0.6"
+      />
+    </pattern>
+  );
+}
+
 interface ShapeComponentProps {
   shape: Shape;
   isSelected?: boolean;
@@ -25,29 +56,39 @@ function RectangleComponent({
     e.preventDefault();
     e.stopPropagation();
 
-    if (onSelect) {
-      onSelect(shape);
-    }
-
-    if (!onMove) return;
-
     const startX = e.clientX;
     const startY = e.clientY;
     let currentDeltaX = 0;
     let currentDeltaY = 0;
+    let hasMoved = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       currentDeltaX = moveEvent.clientX - startX;
       currentDeltaY = moveEvent.clientY - startY;
-      onMove(shape, currentDeltaX, currentDeltaY);
+
+      // 一定の距離移動したらドラッグとみなす
+      if (Math.abs(currentDeltaX) > 3 || Math.abs(currentDeltaY) > 3) {
+        hasMoved = true;
+        if (onMove) {
+          onMove(shape, currentDeltaX, currentDeltaY);
+        }
+      }
     };
 
     const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
 
-      if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
-        onMoveEnd(shape, currentDeltaX, currentDeltaY);
+      if (hasMoved) {
+        // ドラッグ処理
+        if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
+          onMoveEnd(shape, currentDeltaX, currentDeltaY);
+        }
+      } else {
+        // クリック処理（ドラッグしていない場合）
+        if (onSelect) {
+          onSelect(shape);
+        }
       }
     };
 
@@ -55,19 +96,23 @@ function RectangleComponent({
     document.addEventListener("mouseup", handleMouseUp);
   };
 
+  const hatchId = `hatch-rect-${shape.id}`;
+
   return (
-    <rect
-      x={shape.x}
-      y={shape.y}
-      width={shape.width}
-      height={shape.height}
-      fill="none"
-      stroke={shape.color}
-      strokeWidth={shape.strokeWidth + (isSelected ? 2 : 0)}
-      strokeDasharray={isSelected ? "4,2" : "none"}
-      style={{ cursor: "move" }}
-      onMouseDown={handleMouseDown}
-    />
+    <g>
+      <rect
+        x={shape.x}
+        y={shape.y}
+        width={shape.width}
+        height={shape.height}
+        fill={shape.hatched ? `url(#${hatchId})` : "transparent"}
+        stroke={shape.color}
+        strokeWidth={shape.strokeWidth + (isSelected ? 2 : 0)}
+        strokeDasharray={isSelected ? "4,2" : "none"}
+        style={{ cursor: "move" }}
+        onMouseDown={handleMouseDown}
+      />
+    </g>
   );
 }
 
@@ -82,29 +127,39 @@ function CircleComponent({
     e.preventDefault();
     e.stopPropagation();
 
-    if (onSelect) {
-      onSelect(shape);
-    }
-
-    if (!onMove) return;
-
     const startX = e.clientX;
     const startY = e.clientY;
     let currentDeltaX = 0;
     let currentDeltaY = 0;
+    let hasMoved = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       currentDeltaX = moveEvent.clientX - startX;
       currentDeltaY = moveEvent.clientY - startY;
-      onMove(shape, currentDeltaX, currentDeltaY);
+
+      // 一定の距離移動したらドラッグとみなす
+      if (Math.abs(currentDeltaX) > 3 || Math.abs(currentDeltaY) > 3) {
+        hasMoved = true;
+        if (onMove) {
+          onMove(shape, currentDeltaX, currentDeltaY);
+        }
+      }
     };
 
     const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
 
-      if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
-        onMoveEnd(shape, currentDeltaX, currentDeltaY);
+      if (hasMoved) {
+        // ドラッグ処理
+        if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
+          onMoveEnd(shape, currentDeltaX, currentDeltaY);
+        }
+      } else {
+        // クリック処理（ドラッグしていない場合）
+        if (onSelect) {
+          onSelect(shape);
+        }
       }
     };
 
@@ -112,18 +167,22 @@ function CircleComponent({
     document.addEventListener("mouseup", handleMouseUp);
   };
 
+  const hatchId = `hatch-circle-${shape.id}`;
+
   return (
-    <circle
-      cx={shape.x}
-      cy={shape.y}
-      r={shape.radius}
-      fill="none"
-      stroke={shape.color}
-      strokeWidth={shape.strokeWidth + (isSelected ? 2 : 0)}
-      strokeDasharray={isSelected ? "4,2" : "none"}
-      style={{ cursor: "move" }}
-      onMouseDown={handleMouseDown}
-    />
+    <g>
+      <circle
+        cx={shape.x}
+        cy={shape.y}
+        r={shape.radius}
+        fill={shape.hatched ? `url(#${hatchId})` : "transparent"}
+        stroke={shape.color}
+        strokeWidth={shape.strokeWidth + (isSelected ? 2 : 0)}
+        strokeDasharray={isSelected ? "4,2" : "none"}
+        style={{ cursor: "move" }}
+        onMouseDown={handleMouseDown}
+      />
+    </g>
   );
 }
 
@@ -138,29 +197,39 @@ function ArrowComponent({
     e.preventDefault();
     e.stopPropagation();
 
-    if (onSelect) {
-      onSelect(shape);
-    }
-
-    if (!onMove) return;
-
     const startX = e.clientX;
     const startY = e.clientY;
     let currentDeltaX = 0;
     let currentDeltaY = 0;
+    let hasMoved = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       currentDeltaX = moveEvent.clientX - startX;
       currentDeltaY = moveEvent.clientY - startY;
-      onMove(shape, currentDeltaX, currentDeltaY);
+
+      // 一定の距離移動したらドラッグとみなす
+      if (Math.abs(currentDeltaX) > 3 || Math.abs(currentDeltaY) > 3) {
+        hasMoved = true;
+        if (onMove) {
+          onMove(shape, currentDeltaX, currentDeltaY);
+        }
+      }
     };
 
     const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
 
-      if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
-        onMoveEnd(shape, currentDeltaX, currentDeltaY);
+      if (hasMoved) {
+        // ドラッグ処理
+        if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
+          onMoveEnd(shape, currentDeltaX, currentDeltaY);
+        }
+      } else {
+        // クリック処理（ドラッグしていない場合）
+        if (onSelect) {
+          onSelect(shape);
+        }
       }
     };
 
@@ -214,29 +283,39 @@ function PolygonComponent({
     e.preventDefault();
     e.stopPropagation();
 
-    if (onSelect) {
-      onSelect(shape);
-    }
-
-    if (!onMove) return;
-
     const startX = e.clientX;
     const startY = e.clientY;
     let currentDeltaX = 0;
     let currentDeltaY = 0;
+    let hasMoved = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       currentDeltaX = moveEvent.clientX - startX;
       currentDeltaY = moveEvent.clientY - startY;
-      onMove(shape, currentDeltaX, currentDeltaY);
+
+      // 一定の距離移動したらドラッグとみなす
+      if (Math.abs(currentDeltaX) > 3 || Math.abs(currentDeltaY) > 3) {
+        hasMoved = true;
+        if (onMove) {
+          onMove(shape, currentDeltaX, currentDeltaY);
+        }
+      }
     };
 
     const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
 
-      if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
-        onMoveEnd(shape, currentDeltaX, currentDeltaY);
+      if (hasMoved) {
+        // ドラッグ処理
+        if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
+          onMoveEnd(shape, currentDeltaX, currentDeltaY);
+        }
+      } else {
+        // クリック処理（ドラッグしていない場合）
+        if (onSelect) {
+          onSelect(shape);
+        }
       }
     };
 
@@ -248,16 +327,20 @@ function PolygonComponent({
     .map((point) => `${shape.x + point.x},${shape.y + point.y}`)
     .join(" ");
 
+  const hatchId = `hatch-polygon-${shape.id}`;
+
   return (
-    <polygon
-      points={points}
-      fill="none"
-      stroke={shape.color}
-      strokeWidth={shape.strokeWidth + (isSelected ? 2 : 0)}
-      strokeDasharray={isSelected ? "4,2" : "none"}
-      style={{ cursor: "move" }}
-      onMouseDown={handleMouseDown}
-    />
+    <g>
+      <polygon
+        points={points}
+        fill={shape.hatched ? `url(#${hatchId})` : "transparent"}
+        stroke={shape.color}
+        strokeWidth={shape.strokeWidth + (isSelected ? 2 : 0)}
+        strokeDasharray={isSelected ? "4,2" : "none"}
+        style={{ cursor: "move" }}
+        onMouseDown={handleMouseDown}
+      />
+    </g>
   );
 }
 
@@ -282,4 +365,19 @@ export function ShapeRenderer({
     default:
       return null;
   }
+}
+
+export function createHatchPatterns(shapes: Shape[]) {
+  const patterns = new Map<string, string>();
+
+  shapes.forEach((shape) => {
+    if (shape.hatched) {
+      const patternId = `hatch-${shape.type}-${shape.id}`;
+      patterns.set(patternId, shape.color);
+    }
+  });
+
+  return Array.from(patterns.entries()).map(([id, color]) => (
+    <HatchPattern key={id} id={id} color={color} />
+  ));
 }

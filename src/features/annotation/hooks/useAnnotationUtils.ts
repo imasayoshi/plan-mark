@@ -151,15 +151,9 @@ export const useAnnotationUtils = () => {
     const lineCount = Math.max(lines.length, 1);
 
     const baseCharWidth = 7.0; // 半角文字幅を設定
-    const zenkakuRatio = 1.4; // 全角は半角の1.4倍
+    const zenkakuRatio = 1.5; // 全角は半角の1.5倍
     const lineHeight = 16; // 11px * 1.3 + 余裕
     const paddingSpace = 18;
-
-    console.log("calculateTextareaSize - input:", {
-      content: displayContent,
-      lines: lines,
-      lineCount: lineCount,
-    });
 
     const maxLineWidth = Math.max(
       ...lines.map((line) => {
@@ -173,26 +167,14 @@ export const useAnnotationUtils = () => {
             ? baseCharWidth * zenkakuRatio
             : baseCharWidth;
           totalWidth += charWidth;
-
-          console.log(
-            `char: "${line[i]}" (${char}) - isZenkaku: ${isZenkaku}, width: ${charWidth}`
-          );
         }
 
-        console.log(`line: "${line}" - totalWidth: ${totalWidth}`);
         return totalWidth;
       })
     );
 
     const pdfWidth = Math.max(maxLineWidth + paddingSpace, 26);
     const pdfHeight = Math.max(lineCount * lineHeight + 12, 28);
-
-    console.log("calculateTextareaSize - result:", {
-      maxLineWidth,
-      pdfWidth,
-      pdfHeight,
-      finalSize: { width: Math.ceil(pdfWidth), height: Math.ceil(pdfHeight) },
-    });
 
     return {
       width: Math.ceil(pdfWidth),

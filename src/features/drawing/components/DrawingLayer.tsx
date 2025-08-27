@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useShapes } from "../hooks/useShapes";
-import { ShapeRenderer } from "./ShapeRenderer";
+import { ShapeRenderer, createHatchPatterns } from "./ShapeRenderer";
+import { useAnnotationUtils } from "../../annotation/hooks/useAnnotationUtils";
 import type { Shape, ShapeType, ShapeCreateType } from "../types/shape";
 
 interface DrawingLayerProps {
   documentId: string;
   pageNumber: number;
   selectedTool: ShapeType | null;
-  selectedMode?: string | null;
+  selectedToolHatched?: boolean;
   onShapeCreated?: (shape: Shape) => void;
   onPolygonStateChange?: (points: Array<{ x: number; y: number }>) => void;
   polygonCompleteRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
@@ -18,16 +19,17 @@ export function DrawingLayer({
   documentId,
   pageNumber,
   selectedTool,
-  selectedMode,
+  selectedToolHatched = false,
   onShapeCreated,
   onPolygonStateChange,
   polygonCompleteRef,
   polygonCancelRef,
 }: DrawingLayerProps) {
-  const { shapes, createShape, updateShapeOptimistic } = useShapes(
+  const { shapes, createShape, updateShapeOptimistic, deleteShape } = useShapes(
     documentId,
     pageNumber
   );
+  const { getPDFBounds } = useAnnotationUtils();
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingStart, setDrawingStart] = useState<{
@@ -40,9 +42,38 @@ export function DrawingLayer({
   const [draggingShapes, setDraggingShapes] = useState<
     Map<string, { x: number; y: number; endX?: number; endY?: number }>
   >(new Map());
+  const [selectedShapeForActions, setSelectedShapeForActions] =
+    useState<Shape | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // 選択ツールが変更された時に選択状態をリセット
+  useEffect(() => {
+    setSelectedShapeForActions(null);
+  }, [selectedTool]);
+
+  // ドキュメント全体のクリック監視で選択状態をリセット
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as Element;
+
+      // ボタン自体がクリックされた場合は何もしない
+      if (target.closest("button")) return;
+
+      // SVG要素がクリックされた場合は何もしない
+      if (target.closest("svg")) return;
+
+      // それ以外の場合は選択状態をリセット
+      setSelectedShapeForActions(null);
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
+  }, []);
+
   const handleMouseDown = (event: React.MouseEvent<SVGSVGElement>) => {
+    // 描画ツールが選択されている場合のみ描画処理
     if (!selectedTool) return;
 
     event.preventDefault();
@@ -88,6 +119,7 @@ export function DrawingLayer({
       type: selectedTool,
       x: Math.min(drawingStart.x, endX),
       y: Math.min(drawingStart.y, endY),
+      hatched: selectedToolHatched,
     };
 
     switch (selectedTool) {
@@ -149,6 +181,7 @@ export function DrawingLayer({
         x: p.x - Math.min(...polygonPoints.map((pt) => pt.x)),
         y: p.y - Math.min(...polygonPoints.map((pt) => pt.y)),
       })),
+      hatched: selectedToolHatched,
     };
 
     const newShape = await createShape(shapeData);
@@ -233,7 +266,7 @@ export function DrawingLayer({
 
     element.id = "temp-shape";
     element.setAttribute("fill", "none");
-    element.setAttribute("stroke", "#3b82f6");
+    element.setAttribute("stroke", "#ef4444");
     element.setAttribute("stroke-width", "2");
     element.setAttribute("stroke-dasharray", "4,2");
     element.style.pointerEvents = "none";
@@ -331,6 +364,32 @@ export function DrawingLayer({
     });
   };
 
+  // 図形モード時の図形クリック処理
+  const handleShapeClickForActions = (shape: Shape) => {
+    if (selectedTool !== null) {
+      // 既に選択されている図形をクリックした場合は選択解除
+      if (selectedShapeForActions?.id === shape.id) {
+        setSelectedShapeForActions(null);
+      } else {
+        setSelectedShapeForActions(shape);
+      }
+    }
+  };
+
+  // アクションボタンからの削除
+  const handleDeleteFromActions = async () => {
+    if (selectedShapeForActions?.id) {
+      try {
+        const success = await deleteShape(selectedShapeForActions.id);
+        if (success) {
+          setSelectedShapeForActions(null);
+        }
+      } catch (error) {
+        console.error("削除エラー:", error);
+      }
+    }
+  };
+
   return (
     <>
       <svg
@@ -341,14 +400,15 @@ export function DrawingLayer({
           left: 0,
           width: "100%",
           height: "100%",
-          pointerEvents:
-            selectedTool || selectedMode === null ? "auto" : "none",
+          pointerEvents: selectedTool ? "auto" : "none",
           zIndex: 5,
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
+        <defs>{createHatchPatterns(shapes)}</defs>
+
         {shapes.map((shape) => (
           <ShapeRenderer
             key={shape.id}
@@ -358,7 +418,11 @@ export function DrawingLayer({
                 : shape
             }
             isSelected={false}
-            onSelect={handleShapeSelect}
+            onSelect={
+              selectedTool !== null
+                ? handleShapeClickForActions
+                : handleShapeSelect
+            }
             onMove={handleShapeMove}
             onMoveEnd={handleShapeMoveEnd}
           />
@@ -373,7 +437,7 @@ export function DrawingLayer({
                 cx={point.x}
                 cy={point.y}
                 r="4"
-                fill="#3b82f6"
+                fill="#ef4444"
                 stroke="white"
                 strokeWidth="2"
               />
@@ -383,7 +447,7 @@ export function DrawingLayer({
               <polyline
                 points={polygonPoints.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill="none"
-                stroke="#3b82f6"
+                stroke="#ef4444"
                 strokeWidth="2"
                 strokeDasharray="4,2"
               />
@@ -395,7 +459,7 @@ export function DrawingLayer({
                 y1={polygonPoints[polygonPoints.length - 1].y}
                 x2={polygonPoints[0].x}
                 y2={polygonPoints[0].y}
-                stroke="#3b82f6"
+                stroke="#ef4444"
                 strokeWidth="1"
                 strokeDasharray="8,4"
                 opacity="0.6"
@@ -404,6 +468,60 @@ export function DrawingLayer({
           </g>
         )}
       </svg>
+
+      {/* 図形削除ボタン */}
+      {selectedShapeForActions && selectedTool !== null && (
+        <div
+          style={{
+            position: "absolute",
+            left: Math.max(
+              5,
+              Math.min(
+                selectedShapeForActions.x - 15,
+                getPDFBounds().width - 70
+              )
+            ),
+            top: Math.max(
+              5,
+              Math.min(
+                selectedShapeForActions.y - 35,
+                getPDFBounds().height - 30
+              )
+            ),
+            zIndex: 20,
+          }}
+        >
+          <button
+            onClick={handleDeleteFromActions}
+            style={{
+              padding: "4px 8px",
+              backgroundColor: "#ef4444",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: "500",
+              display: "flex",
+              alignItems: "center",
+              gap: "3px",
+              boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)",
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#dc2626";
+              e.currentTarget.style.transform = "scale(1.05)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#ef4444";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            🗑️ 削除
+          </button>
+        </div>
+      )}
     </>
   );
 }

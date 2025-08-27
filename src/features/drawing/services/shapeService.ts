@@ -2,26 +2,18 @@ import { generateClient } from "aws-amplify/data";
 import type { Schema } from "../../../../amplify/data/resource";
 import type { Shape, ShapeCreateType, ShapeUpdateType } from "../types/shape";
 
-const client = generateClient<Schema>();
+// クライアントを遅延初期化するために関数として定義
+const getClient = () => generateClient<Schema>();
 
 class ShapeService {
   async getShapes(documentId: string, pageNumber: number): Promise<Shape[]> {
     try {
-      console.log(
-        "Loading shapes for document:",
-        documentId,
-        "page:",
-        pageNumber
-      );
-
-      const result = await client.models.Shape.list({
+      const result = await getClient().models.Shape.list({
         filter: {
           documentId: { eq: documentId },
           pageNumber: { eq: pageNumber },
         },
       });
-
-      console.log("Loaded shapes result:", result);
 
       return (result.data || []).map(this.convertToShape);
     } catch (error) {
@@ -34,32 +26,21 @@ class ShapeService {
     try {
       const properties = this.buildShapeProperties(shapeData);
 
-      console.log("Creating shape with data:", {
+      const result = await getClient().models.Shape.create({
         documentId: shapeData.documentId,
         pageNumber: shapeData.pageNumber,
         type: shapeData.type,
         x: shapeData.x,
         y: shapeData.y,
-        color: shapeData.color || "#3b82f6",
+        color: shapeData.color || "#ef4444",
         strokeWidth: shapeData.strokeWidth || 2,
-        properties: properties,
+        properties: JSON.stringify({
+          ...properties,
+          hatched: shapeData.hatched || false,
+        }),
       });
-
-      const result = await client.models.Shape.create({
-        documentId: shapeData.documentId,
-        pageNumber: shapeData.pageNumber,
-        type: shapeData.type,
-        x: shapeData.x,
-        y: shapeData.y,
-        color: shapeData.color || "#3b82f6",
-        strokeWidth: shapeData.strokeWidth || 2,
-        properties: JSON.stringify(properties),
-      });
-
-      console.log("Shape creation result:", result);
 
       if (!result.data) {
-        console.error("Shape creation failed - no data in result:", result);
         throw new Error(
           `Failed to create shape: ${JSON.stringify(result.errors || "Unknown error")}`
         );
@@ -74,7 +55,9 @@ class ShapeService {
 
   async updateShape(updateData: ShapeUpdateType): Promise<Shape | null> {
     try {
-      const existing = await client.models.Shape.get({ id: updateData.id });
+      const existing = await getClient().models.Shape.get({
+        id: updateData.id,
+      });
       if (!existing.data) return null;
 
       const currentShape = this.convertToShape(existing.data);
@@ -83,20 +66,16 @@ class ShapeService {
         updateData
       );
 
-      console.log(
-        "Updating shape:",
-        updateData.id,
-        "with properties:",
-        updatedProperties
-      );
-
-      const result = await client.models.Shape.update({
+      const result = await getClient().models.Shape.update({
         id: updateData.id,
         x: updateData.x ?? existing.data.x,
         y: updateData.y ?? existing.data.y,
         color: updateData.color ?? existing.data.color,
         strokeWidth: updateData.strokeWidth ?? existing.data.strokeWidth,
-        properties: JSON.stringify(updatedProperties),
+        properties: JSON.stringify({
+          ...updatedProperties,
+          hatched: updateData.hatched ?? (currentShape.hatched || false),
+        }),
       });
 
       if (!result.data) return null;
@@ -108,7 +87,7 @@ class ShapeService {
   }
 
   async deleteShape(id: string): Promise<boolean> {
-    const result = await client.models.Shape.delete({ id });
+    const result = await getClient().models.Shape.delete({ id });
     return !!result.data;
   }
 
@@ -190,6 +169,7 @@ class ShapeService {
           height: properties.height || 50,
           color: data.color,
           strokeWidth: data.strokeWidth,
+          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -204,6 +184,7 @@ class ShapeService {
           radius: properties.radius || 50,
           color: data.color,
           strokeWidth: data.strokeWidth,
+          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -219,6 +200,7 @@ class ShapeService {
           endY: properties.endY || data.y,
           color: data.color,
           strokeWidth: data.strokeWidth,
+          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -237,6 +219,7 @@ class ShapeService {
           ],
           color: data.color,
           strokeWidth: data.strokeWidth,
+          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };

@@ -9,6 +9,8 @@ interface AnnotationWithLeaderProps {
     deltaX: number,
     deltaY: number
   ) => void;
+  onEdit?: (annotation: AnnotationType) => void;
+  onClickForActions?: (annotation: AnnotationType) => void;
 }
 
 export function AnnotationWithLeader({
@@ -16,6 +18,7 @@ export function AnnotationWithLeader({
   selectedTool,
   onMove,
   onMoveEnd,
+  onClickForActions,
 }: AnnotationWithLeaderProps) {
   const leaderX = annotation.leaderX ?? annotation.x ?? 0;
   const leaderY = annotation.leaderY ?? annotation.y ?? 0;
@@ -93,33 +96,50 @@ export function AnnotationWithLeader({
   const isDraggable = selectedTool === null;
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isDraggable || !onMove) return;
+    // デフォルトモード（ドラッグ可能）の場合
+    if (isDraggable) {
+      e.preventDefault();
+      e.stopPropagation();
 
-    e.preventDefault();
-    e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let currentDeltaX = 0;
+      let currentDeltaY = 0;
+      let hasMoved = false;
 
-    const startX = e.clientX;
-    const startY = e.clientY;
-    let currentDeltaX = 0;
-    let currentDeltaY = 0;
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        currentDeltaX = moveEvent.clientX - startX;
+        currentDeltaY = moveEvent.clientY - startY;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      currentDeltaX = moveEvent.clientX - startX;
-      currentDeltaY = moveEvent.clientY - startY;
-      onMove(annotation, currentDeltaX, currentDeltaY);
-    };
+        // 一定の距離移動したらドラッグとみなす
+        if (Math.abs(currentDeltaX) > 3 || Math.abs(currentDeltaY) > 3) {
+          hasMoved = true;
+          if (onMove) {
+            onMove(annotation, currentDeltaX, currentDeltaY);
+          }
+        }
+      };
 
-    const handleMouseUp = () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      const handleMouseUp = () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
 
-      if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
-        onMoveEnd(annotation, currentDeltaX, currentDeltaY);
-      }
-    };
+        if (hasMoved) {
+          // ドラッグ処理
+          if (onMoveEnd && (currentDeltaX !== 0 || currentDeltaY !== 0)) {
+            onMoveEnd(annotation, currentDeltaX, currentDeltaY);
+          }
+        } else {
+          // クリック処理（ドラッグしていない場合）
+          if (onClickForActions) {
+            onClickForActions(annotation);
+          }
+        }
+      };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
   };
 
   return (
@@ -183,6 +203,7 @@ export function AnnotationWithLeader({
           overflow: "hidden",
           color: "#333",
           cursor: isDraggable ? "move" : "default",
+          transition: "border-color 0.2s, box-shadow 0.2s",
         }}
       />
     </div>

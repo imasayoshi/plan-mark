@@ -3,6 +3,9 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { documentService } from "../services/documentService";
 import { DrawingLayer } from "../../drawing/components/DrawingLayer";
 import { AnnotationLayer } from "../../annotation/components/AnnotationLayer";
+import { AutoAdjustButton, useAutoAdjust } from "../../annotation-auto-adjust";
+import { useAnnotations } from "../../annotation/hooks/useAnnotations";
+import { useAnnotationUtils } from "../../annotation/hooks/useAnnotationUtils";
 import type { DocumentType } from "../types/document";
 import type { ShapeType } from "../../drawing/types/shape";
 
@@ -13,7 +16,7 @@ type ToolType = "annotation" | ShapeType;
 interface DocumentViewerProps {
   document: DocumentType;
   selectedTool?: string | null;
-  onToolChange?: (tool: ToolType | null) => void;
+  onToolChange?: (tool: ToolType | null, hatched?: boolean) => void;
 }
 
 export function DocumentViewer({
@@ -26,17 +29,78 @@ export function DocumentViewer({
   const [error, setError] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
+  const [isPdfDocumentLoaded, setIsPdfDocumentLoaded] = useState(false);
+  const [isPdfPageLoaded, setIsPdfPageLoaded] = useState(false);
   const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
+  const [selectedToolHatched, setSelectedToolHatched] =
+    useState<boolean>(false);
+  const [toolStates, setToolStates] = useState<
+    Record<string, "normal" | "hatched" | null>
+  >({
+    rectangle: null,
+    circle: null,
+    polygon: null,
+  });
   const [polygonPoints, setPolygonPoints] = useState<
     Array<{ x: number; y: number }>
   >([]);
   const polygonCompleteRef = useRef<(() => Promise<boolean>) | null>(null);
   const polygonCancelRef = useRef<(() => void) | null>(null);
 
+  // 自動調整機能関連
+  // PDF読み込み完了フラグ（ドキュメントとページの両方が読み込まれた状態）
+  const isPdfFullyLoaded = isPdfDocumentLoaded && isPdfPageLoaded;
+
+  const {
+    annotations,
+    updateAnnotationOptimistic,
+    createAnnotation,
+    deleteAnnotation,
+  } = useAnnotations(document.id, pageNumber, isPdfFullyLoaded);
+
+  // デバッグ用ログ（重複ログを避けるため、依存配列を使ったuseEffectに変更）
+  const { getPDFBounds } = useAnnotationUtils();
+  const { isAdjusting, adjustAnnotations, checkCollisions } = useAutoAdjust();
+  const [hasCollisions, setHasCollisions] = useState(false);
+
+  // AnnotationLayerからの重なり状態変更を受け取る
+  const handleCollisionChange = (
+    hasCollisions: boolean,
+    isManualMove = false
+  ) => {
+    setHasCollisions(hasCollisions);
+
+    // 手動移動の場合は重なり検知のみ（自動調整しない）
+    if (isManualMove) {
+      return;
+    }
+
+    // 自動調整やプログラム的な変更の場合のみ、必要に応じて処理
+    // （現在は重なり状態の更新のみ）
+  };
+
+  // 初期読み込み時の重なり検知
+  useEffect(() => {
+    if (annotations.length > 1) {
+      setHasCollisions(checkCollisions(annotations));
+    } else {
+      setHasCollisions(false);
+    }
+  }, [annotations, checkCollisions]);
+
   // 外部からのselectedToolを同期
   useEffect(() => {
     setSelectedTool(externalSelectedTool as ToolType);
   }, [externalSelectedTool]);
+
+  // ドキュメント変更時にPDF読み込み状態を完全にリセット
+  useEffect(() => {
+    setIsPdfDocumentLoaded(false);
+    setIsPdfPageLoaded(false);
+    setPdfUrl(null); // PDFのURLもクリアして前のPDFが表示されないようにする
+    setIsLoading(true); // ローディング状態に戻す
+    setError(null); // エラー状態もクリア
+  }, [document.id]);
 
   useEffect(() => {
     loadDocument();
@@ -67,43 +131,98 @@ export function DocumentViewer({
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setPageNumber(1);
+    setIsPdfDocumentLoaded(true);
+    setIsPdfPageLoaded(false); // ページ読み込みはまだ
+  };
+
+  const onPageLoadSuccess = () => {
+    setIsPdfPageLoaded(true);
   };
 
   const onDocumentLoadError = (error: Error) => {
     console.error("PDF load error:", error);
     setError(`PDF読み込みエラー: ${error.message}`);
+    setIsPdfDocumentLoaded(false);
+    setIsPdfPageLoaded(false);
   };
 
   const handleToolChange = (tool: ToolType | null) => {
-    // 同じモードをクリックした場合は解除（トグル機能）
-    if (selectedTool === tool) {
-      // 多角形モードの場合は描画中の点もキャンセル
-      if (tool === "polygon" && polygonPoints.length > 0) {
+    // 解除ボタン（デフォルトモードに戻る）
+    if (tool === null) {
+      setSelectedTool(null);
+      setSelectedToolHatched(false);
+      // モード切替ボタンの状態も初期状態にリセット
+      setToolStates({
+        rectangle: null,
+        circle: null,
+        polygon: null,
+      });
+      // 多角形描画中の場合はキャンセル
+      if (selectedTool === "polygon" && polygonPoints.length > 0) {
         if (polygonCancelRef.current) {
           polygonCancelRef.current();
         }
       }
-      setSelectedTool(null);
       if (onToolChange) {
         onToolChange(null);
       }
       return;
     }
 
-    // 多角形モードから他のモードに切り替える場合、多角形描画をキャンセル
-    if (
-      selectedTool === "polygon" &&
-      tool !== "polygon" &&
-      polygonPoints.length > 0
-    ) {
-      if (polygonCancelRef.current) {
-        polygonCancelRef.current();
+    // 矢印の場合（斜線なし）
+    if (tool === "arrow") {
+      if (selectedTool === "arrow") {
+        setSelectedTool(null);
+        setSelectedToolHatched(false);
+        if (onToolChange) {
+          onToolChange(null);
+        }
+      } else {
+        setSelectedTool("arrow");
+        setSelectedToolHatched(false);
+        if (onToolChange) {
+          onToolChange("arrow");
+        }
       }
+      return;
     }
 
-    setSelectedTool(tool);
-    if (onToolChange) {
-      onToolChange(tool);
+    // 斜線対応図形（rectangle, circle, polygon）の3段階切り替え
+    if (tool && ["rectangle", "circle", "polygon"].includes(tool)) {
+      const originalTool = tool; // 元のツール名を保持
+      const currentState = toolStates[tool];
+      let newState: "normal" | "hatched" | null;
+      let hatched = false;
+      let newSelectedTool: ToolType | null = tool;
+
+      if (currentState === null) {
+        newState = "normal";
+        hatched = false;
+      } else if (currentState === "normal") {
+        newState = "hatched";
+        hatched = true;
+      } else {
+        newState = null;
+        newSelectedTool = null;
+      }
+
+      // 多角形描画中の場合のキャンセル処理
+      if (
+        selectedTool === "polygon" &&
+        polygonPoints.length > 0 &&
+        (newSelectedTool !== "polygon" || newState === null)
+      ) {
+        if (polygonCancelRef.current) {
+          polygonCancelRef.current();
+        }
+      }
+
+      setToolStates((prev) => ({ ...prev, [originalTool]: newState }));
+      setSelectedTool(newSelectedTool);
+      setSelectedToolHatched(hatched);
+      if (onToolChange) {
+        onToolChange(newSelectedTool, hatched);
+      }
     }
   };
 
@@ -125,6 +244,54 @@ export function DocumentViewer({
   const handlePolygonCancel = () => {
     if (polygonCancelRef.current) {
       polygonCancelRef.current();
+    }
+  };
+
+  // 自動調整処理を実行
+  const handleAutoAdjust = async () => {
+    if (annotations.length === 0) return;
+
+    const pdfBounds = getPDFBounds();
+    const containerBounds = {
+      x: 0,
+      y: 0,
+      width: pdfBounds.width,
+      height: pdfBounds.height,
+    };
+
+    try {
+      const results = await adjustAnnotations(annotations, containerBounds);
+
+      // 移動されたアノテーションのみ更新
+      const movedAnnotations = results.filter((result) => result.moved);
+
+      if (movedAnnotations.length > 0) {
+        // 並列実行で更新処理を高速化
+        await Promise.all(
+          movedAnnotations.map((result) =>
+            updateAnnotationOptimistic({
+              id: result.annotation.id,
+              x: result.newPosition.x,
+              y: result.newPosition.y,
+            })
+          )
+        );
+
+        // 自動配置後に重なりチェックを再実行
+        setTimeout(() => {
+          const updatedAnnotations = annotations.map((ann) => {
+            const result = results.find((r) => r.annotation.id === ann.id);
+            return result?.moved
+              ? { ...ann, x: result.newPosition.x, y: result.newPosition.y }
+              : ann;
+          });
+          const hasCollisions = checkCollisions(updatedAnnotations);
+          setHasCollisions(hasCollisions);
+        }, 100);
+      } else {
+      }
+    } catch (error) {
+      console.error("自動調整エラー:", error);
     }
   };
 
@@ -193,7 +360,7 @@ export function DocumentViewer({
             >
               <div style={{ position: "relative", overflow: "hidden" }}>
                 <Document
-                  key={document.fileKey}
+                  key={`pdf-${document.id}-${document.fileKey}`}
                   file={pdfUrl}
                   onLoadSuccess={onDocumentLoadSuccess}
                   onLoadError={onDocumentLoadError}
@@ -225,8 +392,10 @@ export function DocumentViewer({
                   }
                 >
                   <Page
+                    key={`page-${document.id}-${pageNumber}`}
                     pageNumber={pageNumber}
                     scale={0.8}
+                    onLoadSuccess={onPageLoadSuccess}
                     renderAnnotationLayer={false} //内蔵機能を無効化
                     renderTextLayer={false} //内蔵機能を無効化
                     loading={
@@ -242,47 +411,54 @@ export function DocumentViewer({
                   />
                 </Document>
 
-                {/* 図形描画レイヤー */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                  }}
-                >
-                  <DrawingLayer
-                    documentId={document.id}
-                    pageNumber={pageNumber}
-                    selectedTool={
-                      selectedTool === "annotation"
-                        ? null
-                        : (selectedTool as ShapeType)
-                    }
-                    selectedMode={selectedTool}
-                    onPolygonStateChange={handlePolygonStateChange}
-                    polygonCompleteRef={polygonCompleteRef}
-                    polygonCancelRef={polygonCancelRef}
-                  />
-                </div>
+                {/* 図形描画レイヤー - PDF完全読み込み後のみ表示 */}
+                {isPdfFullyLoaded && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
+                  >
+                    <DrawingLayer
+                      key={`drawing-${document.id}-${pageNumber}`}
+                      documentId={document.id}
+                      pageNumber={pageNumber}
+                      selectedTool={selectedTool as ShapeType}
+                      selectedToolHatched={selectedToolHatched}
+                      onPolygonStateChange={handlePolygonStateChange}
+                      polygonCompleteRef={polygonCompleteRef}
+                      polygonCancelRef={polygonCancelRef}
+                    />
+                  </div>
+                )}
 
-                {/* アノテーションレイヤー */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                  }}
-                >
-                  <AnnotationLayer
-                    documentId={document.id}
-                    pageNumber={pageNumber}
-                    selectedTool={selectedTool}
-                  />
-                </div>
+                {/* アノテーションレイヤー - PDF完全読み込み後のみ表示 */}
+                {isPdfFullyLoaded && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
+                  >
+                    <AnnotationLayer
+                      key={`annotation-${document.id}-${pageNumber}`}
+                      documentId={document.id}
+                      pageNumber={pageNumber}
+                      selectedTool={selectedTool}
+                      onCollisionChange={handleCollisionChange}
+                      externalUpdateAnnotation={updateAnnotationOptimistic}
+                      externalAnnotations={annotations}
+                      externalCreateAnnotation={createAnnotation}
+                      externalDeleteAnnotation={deleteAnnotation}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -322,29 +498,23 @@ export function DocumentViewer({
               >
                 {!selectedTool && (
                   <>
-                    <span>選択・移動モード</span>
+                    <span>デフォルトモード</span>
                   </>
                 )}
-                {selectedTool === "annotation" && (
-                  <>
-                    コメント追加モード
-                    <span style={{ color: "#ff9800", marginLeft: "8px" }}>
-                      引き出し線の先端をクリックしてコメントを追加
-                    </span>
-                  </>
-                )}
-                {selectedTool === "rectangle" && "四角形描画モード"}
-                {selectedTool === "circle" && "円描画モード"}
+
+                {selectedTool === "rectangle" &&
+                  `四角形描画モード${selectedToolHatched ? "（斜線付き）" : ""}`}
+                {selectedTool === "circle" &&
+                  `円描画モード${selectedToolHatched ? "（斜線付き）" : ""}`}
                 {selectedTool === "arrow" && "矢印描画モード"}
                 {selectedTool === "polygon" && (
                   <>
-                    多角形描画モード
+                    多角形描画モード{selectedToolHatched ? "（斜線付き）" : ""}
                     {polygonPoints.length > 0 && (
                       <span
                         style={{
                           color: "#3b82f6",
                           fontWeight: "500",
-                          marginLeft: "8px",
                         }}
                       >
                         ({polygonPoints.length}点)
@@ -378,7 +548,6 @@ export function DocumentViewer({
                     style={{
                       display: "flex",
                       gap: "4px",
-                      marginLeft: "12px",
                       alignItems: "center",
                     }}
                   >
@@ -438,38 +607,102 @@ export function DocumentViewer({
               }}
             >
               {[
-                { value: "annotation", label: "コメント", icon: "💬" },
-                { value: "rectangle", label: "四角形", icon: "▬" },
-                { value: "circle", label: "円", icon: "●" },
+                {
+                  value: "rectangle",
+                  label: "四角形",
+                  icon: "▬",
+                  hatchIcon: "⫽",
+                },
+                { value: "circle", label: "円", icon: "●", hatchIcon: "⊙" },
                 { value: "arrow", label: "矢印", icon: "→" },
-                { value: "polygon", label: "多角形", icon: "⬟" },
-              ].map((tool) => (
-                <button
-                  key={tool.value}
-                  onClick={() => handleToolChange(tool.value as ToolType)}
-                  title={tool.label}
-                  style={{
-                    padding: "8px",
-                    border:
-                      selectedTool === tool.value
-                        ? "2px solid #3b82f6"
-                        : "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    backgroundColor:
-                      selectedTool === tool.value ? "#eff6ff" : "white",
-                    cursor: "pointer",
-                    fontSize: "16px",
-                    minWidth: "40px",
-                    minHeight: "40px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {tool.icon}
-                </button>
-              ))}
+                {
+                  value: "polygon",
+                  label: "多角形",
+                  icon: "⬟",
+                  hatchIcon: "⬢",
+                },
+              ].map((tool) => {
+                const isSelected = selectedTool === tool.value;
+                const toolState = tool.hatchIcon
+                  ? toolStates[tool.value]
+                  : null;
+                const isHatched = toolState === "hatched";
+
+                // 境界線と背景色の決定
+                let borderColor = "#d1d5db";
+                let backgroundColor = "white";
+                let buttonTitle = tool.label;
+
+                if (isSelected) {
+                  if (isHatched) {
+                    borderColor = "#ef4444";
+                    backgroundColor = "#fef2f2";
+                    buttonTitle = `${tool.label}（斜線付き）`;
+                  } else {
+                    borderColor = "#3b82f6";
+                    backgroundColor = "#eff6ff";
+                  }
+                }
+
+                return (
+                  <button
+                    key={tool.value}
+                    onClick={() => handleToolChange(tool.value as ToolType)}
+                    title={buttonTitle}
+                    style={{
+                      padding: "8px",
+                      border: `2px solid ${borderColor}`,
+                      borderRadius: "6px",
+                      backgroundColor,
+                      cursor: "pointer",
+                      fontSize: "16px",
+                      minWidth: "40px",
+                      minHeight: "40px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s",
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {/* 斜線背景パターン */}
+                    {isHatched && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundImage: `repeating-linear-gradient(
+                            45deg,
+                            transparent,
+                            transparent 2px,
+                            ${borderColor} 2px,
+                            ${borderColor} 4px
+                          )`,
+                          opacity: 0.3,
+                          zIndex: 1,
+                        }}
+                      />
+                    )}
+                    {/* アイコン（常に通常アイコン） */}
+                    <span style={{ position: "relative", zIndex: 2 }}>
+                      {tool.icon}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* 自動調整ボタン */}
+              <div style={{ marginLeft: "16px" }}>
+                <AutoAdjustButton
+                  onClick={handleAutoAdjust}
+                  isAdjusting={isAdjusting}
+                  hasCollisions={hasCollisions}
+                />
+              </div>
             </div>
 
             {/* 右側のページナビゲーション */}
@@ -486,6 +719,7 @@ export function DocumentViewer({
                 onClick={(e) => {
                   e.stopPropagation();
                   setPageNumber((page) => Math.max(page - 1, 1));
+                  setIsPdfPageLoaded(false); // ページ変更時にリセット
                 }}
                 disabled={pageNumber <= 1}
                 style={{
@@ -506,6 +740,7 @@ export function DocumentViewer({
                 onClick={(e) => {
                   e.stopPropagation();
                   setPageNumber((page) => Math.min(page + 1, numPages));
+                  setIsPdfPageLoaded(false); // ページ変更時にリセット
                 }}
                 disabled={pageNumber >= numPages}
                 style={{

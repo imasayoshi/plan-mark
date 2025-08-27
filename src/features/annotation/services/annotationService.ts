@@ -6,14 +6,13 @@ import type {
   AnnotationUpdateType,
 } from "../types/annotation";
 
-const client = generateClient<Schema>();
+// クライアントを遅延初期化するために関数として定義
+const getClient = () => generateClient<Schema>();
 
 class AnnotationService {
   async createAnnotation(data: AnnotationCreateType): Promise<AnnotationType> {
     try {
-      console.log("Creating annotation with data:", data);
-
-      const result = await client.models.Annotation.create({
+      const result = await getClient().models.Annotation.create({
         documentId: data.documentId,
         pageNumber: data.pageNumber,
         content: data.content,
@@ -25,13 +24,7 @@ class AnnotationService {
         height: data.height,
       });
 
-      console.log("Annotation creation result:", result);
-
       if (!result.data) {
-        console.error(
-          "Annotation creation failed - no data in result:",
-          result
-        );
         throw new Error(
           `Failed to create annotation: ${JSON.stringify(result.errors || "Unknown error")}`
         );
@@ -49,21 +42,12 @@ class AnnotationService {
     pageNumber?: number
   ): Promise<AnnotationType[]> {
     try {
-      console.log(
-        "Loading annotations for document:",
-        documentId,
-        "page:",
-        pageNumber
-      );
-
       const filter: any = { documentId: { eq: documentId } };
       if (pageNumber !== undefined) {
         filter.pageNumber = { eq: pageNumber };
       }
 
-      const result = await client.models.Annotation.list({ filter });
-
-      console.log("Loaded annotations result:", result);
+      const result = await getClient().models.Annotation.list({ filter });
 
       return (result.data || []).map(this.convertToAnnotation);
     } catch (error) {
@@ -74,14 +58,12 @@ class AnnotationService {
 
   async updateAnnotation(data: AnnotationUpdateType): Promise<AnnotationType> {
     try {
-      console.log("Updating annotation:", data.id, "with data:", data);
-
-      const existing = await client.models.Annotation.get({ id: data.id });
+      const existing = await getClient().models.Annotation.get({ id: data.id });
       if (!existing.data) {
         throw new Error("Annotation not found");
       }
 
-      const result = await client.models.Annotation.update({
+      const result = await getClient().models.Annotation.update({
         id: data.id,
         content: data.content ?? existing.data.content,
         x: data.x ?? existing.data.x,
@@ -105,9 +87,7 @@ class AnnotationService {
 
   async deleteAnnotation(id: string): Promise<void> {
     try {
-      console.log("Deleting annotation:", id);
-
-      const result = await client.models.Annotation.delete({ id });
+      const result = await getClient().models.Annotation.delete({ id });
 
       if (!result.data) {
         throw new Error("Failed to delete annotation");
@@ -118,7 +98,8 @@ class AnnotationService {
     }
   }
 
-  private convertToAnnotation(data: any): AnnotationType {
+  // パブリックメソッドに変更（サブスクリプションで使用するため）
+  convertToAnnotation(data: any): AnnotationType {
     return {
       id: data.id,
       documentId: data.documentId,

@@ -1,4 +1,4 @@
-export type ShapeType = 'rectangle' | 'circle' | 'arrow' | 'polygon';
+export type ShapeType = "rectangle" | "circle" | "arrow" | "polygon";
 
 export interface BaseShape {
   id: string;
@@ -11,29 +11,30 @@ export interface BaseShape {
   height?: number;
   color: string;
   strokeWidth: number;
+  hatched?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface RectangleShape extends BaseShape {
-  type: 'rectangle';
+  type: "rectangle";
   width: number;
   height: number;
 }
 
 export interface CircleShape extends BaseShape {
-  type: 'circle';
+  type: "circle";
   radius: number;
 }
 
 export interface ArrowShape extends BaseShape {
-  type: 'arrow';
+  type: "arrow";
   endX: number;
   endY: number;
 }
 
 export interface PolygonShape extends BaseShape {
-  type: 'polygon';
+  type: "polygon";
   points: Array<{ x: number; y: number }>;
 }
 
@@ -53,6 +54,7 @@ export interface ShapeCreateType {
   points?: Array<{ x: number; y: number }>;
   color?: string;
   strokeWidth?: number;
+  hatched?: boolean;
 }
 
 export interface ShapeUpdateType {
@@ -67,4 +69,5 @@ export interface ShapeUpdateType {
   points?: Array<{ x: number; y: number }>;
   color?: string;
   strokeWidth?: number;
+  hatched?: boolean;
 }

@@ -3,7 +3,8 @@ import { uploadData, remove, getUrl } from "aws-amplify/storage";
 import type { Schema } from "../../../../amplify/data/resource";
 import type { DocumentType, DocumentUploadType } from "../types/document";
 
-const client = generateClient<Schema>();
+// クライアントを遅延初期化するために関数として定義
+const getClient = () => generateClient<Schema>();
 
 export const documentService = {
   async uploadDocument(upload: DocumentUploadType): Promise<DocumentType> {
@@ -14,7 +15,7 @@ export const documentService = {
       data: upload.file,
     }).result;
 
-    const result = await client.models.Document.create({
+    const result = await getClient().models.Document.create({
       name: upload.name,
       fileKey: fileKey,
     });
@@ -27,12 +28,12 @@ export const documentService = {
   },
 
   async getDocuments(): Promise<DocumentType[]> {
-    const result = await client.models.Document.list();
+    const result = await getClient().models.Document.list();
     return result.data || [];
   },
 
   async getDocument(id: string): Promise<DocumentType | null> {
-    const result = await client.models.Document.get({ id });
+    const result = await getClient().models.Document.get({ id });
     return result.data || null;
   },
 
@@ -50,7 +51,7 @@ export const documentService = {
 
   async deleteDocument(id: string, fileKey: string): Promise<void> {
     await Promise.all([
-      client.models.Document.delete({ id }),
+      getClient().models.Document.delete({ id }),
       remove({ path: fileKey }),
     ]);
   },

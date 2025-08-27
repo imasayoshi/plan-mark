@@ -44,6 +44,7 @@ export interface EditModalPropsType {
   onCompositionEnd: (e: React.CompositionEvent<HTMLTextAreaElement>) => void;
   onSave: () => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }
 
 export interface EditPreviewPropsType {
