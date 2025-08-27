@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useShapes } from "../hooks/useShapes";
-import { ShapeRenderer, createHatchPatterns } from "./ShapeRenderer";
+import { ShapeRenderer } from "./ShapeRenderer";
 import { useAnnotationUtils } from "../../annotation/hooks/useAnnotationUtils";
 import type { Shape, ShapeType, ShapeCreateType } from "../types/shape";
 
@@ -8,7 +8,6 @@ interface DrawingLayerProps {
   documentId: string;
   pageNumber: number;
   selectedTool: ShapeType | null;
-  selectedToolHatched?: boolean;
   onShapeCreated?: (shape: Shape) => void;
   onPolygonStateChange?: (points: Array<{ x: number; y: number }>) => void;
   polygonCompleteRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
@@ -19,7 +18,6 @@ export function DrawingLayer({
   documentId,
   pageNumber,
   selectedTool,
-  selectedToolHatched = false,
   onShapeCreated,
   onPolygonStateChange,
   polygonCompleteRef,
@@ -119,7 +117,6 @@ export function DrawingLayer({
       type: selectedTool,
       x: Math.min(drawingStart.x, endX),
       y: Math.min(drawingStart.y, endY),
-      hatched: selectedToolHatched,
     };
 
     switch (selectedTool) {
@@ -181,7 +178,6 @@ export function DrawingLayer({
         x: p.x - Math.min(...polygonPoints.map((pt) => pt.x)),
         y: p.y - Math.min(...polygonPoints.map((pt) => pt.y)),
       })),
-      hatched: selectedToolHatched,
     };
 
     const newShape = await createShape(shapeData);
@@ -407,8 +403,6 @@ export function DrawingLayer({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-        <defs>{createHatchPatterns(shapes)}</defs>
-
         {shapes.map((shape) => (
           <ShapeRenderer
             key={shape.id}

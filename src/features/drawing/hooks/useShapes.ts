@@ -223,7 +223,6 @@ export function useShapes(documentId: string, pageNumber: number) {
           height: properties.height || 50,
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -238,7 +237,6 @@ export function useShapes(documentId: string, pageNumber: number) {
           radius: properties.radius || 50,
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -254,7 +252,6 @@ export function useShapes(documentId: string, pageNumber: number) {
           endY: properties.endY || data.y,
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -273,7 +270,6 @@ export function useShapes(documentId: string, pageNumber: number) {
           ],
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };

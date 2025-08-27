@@ -11,7 +11,6 @@ export interface BaseShape {
   height?: number;
   color: string;
   strokeWidth: number;
-  hatched?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -54,7 +53,6 @@ export interface ShapeCreateType {
   points?: Array<{ x: number; y: number }>;
   color?: string;
   strokeWidth?: number;
-  hatched?: boolean;
 }
 
 export interface ShapeUpdateType {
@@ -69,5 +67,4 @@ export interface ShapeUpdateType {
   points?: Array<{ x: number; y: number }>;
   color?: string;
   strokeWidth?: number;
-  hatched?: boolean;
 }

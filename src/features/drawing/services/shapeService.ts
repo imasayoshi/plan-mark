@@ -36,7 +36,6 @@ class ShapeService {
         strokeWidth: shapeData.strokeWidth || 2,
         properties: JSON.stringify({
           ...properties,
-          hatched: shapeData.hatched || false,
         }),
       });
 
@@ -74,7 +73,6 @@ class ShapeService {
         strokeWidth: updateData.strokeWidth ?? existing.data.strokeWidth,
         properties: JSON.stringify({
           ...updatedProperties,
-          hatched: updateData.hatched ?? (currentShape.hatched || false),
         }),
       });
 
@@ -169,7 +167,6 @@ class ShapeService {
           height: properties.height || 50,
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -184,7 +181,6 @@ class ShapeService {
           radius: properties.radius || 50,
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -200,7 +196,6 @@ class ShapeService {
           endY: properties.endY || data.y,
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -219,7 +214,6 @@ class ShapeService {
           ],
           color: data.color,
           strokeWidth: data.strokeWidth,
-          hatched: properties.hatched || false,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };

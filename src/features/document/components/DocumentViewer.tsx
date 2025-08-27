@@ -16,7 +16,7 @@ type ToolType = "annotation" | ShapeType;
 interface DocumentViewerProps {
   document: DocumentType;
   selectedTool?: string | null;
-  onToolChange?: (tool: ToolType | null, hatched?: boolean) => void;
+  onToolChange?: (tool: ToolType | null) => void;
 }
 
 export function DocumentViewer({
@@ -32,14 +32,10 @@ export function DocumentViewer({
   const [isPdfDocumentLoaded, setIsPdfDocumentLoaded] = useState(false);
   const [isPdfPageLoaded, setIsPdfPageLoaded] = useState(false);
   const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
-  const [selectedToolHatched, setSelectedToolHatched] =
-    useState<boolean>(false);
-  const [toolStates, setToolStates] = useState<
-    Record<string, "normal" | "hatched" | null>
-  >({
-    rectangle: null,
-    circle: null,
-    polygon: null,
+  const [toolStates, setToolStates] = useState<Record<string, boolean>>({
+    rectangle: false,
+    circle: false,
+    polygon: false,
   });
   const [polygonPoints, setPolygonPoints] = useState<
     Array<{ x: number; y: number }>
@@ -100,6 +96,25 @@ export function DocumentViewer({
     setPdfUrl(null); // PDFのURLもクリアして前のPDFが表示されないようにする
     setIsLoading(true); // ローディング状態に戻す
     setError(null); // エラー状態もクリア
+
+    // モード選択も初期状態にリセット
+    setSelectedTool(null);
+    setToolStates({
+      rectangle: false,
+      circle: false,
+      polygon: false,
+    });
+
+    // 多角形描画中の場合はキャンセル
+    setPolygonPoints([]);
+    if (polygonCancelRef.current) {
+      polygonCancelRef.current();
+    }
+
+    // 親コンポーネントにツール変更を通知
+    if (onToolChange) {
+      onToolChange(null);
+    }
   }, [document.id]);
 
   useEffect(() => {
@@ -150,12 +165,11 @@ export function DocumentViewer({
     // 解除ボタン（デフォルトモードに戻る）
     if (tool === null) {
       setSelectedTool(null);
-      setSelectedToolHatched(false);
       // モード切替ボタンの状態も初期状態にリセット
       setToolStates({
-        rectangle: null,
-        circle: null,
-        polygon: null,
+        rectangle: false,
+        circle: false,
+        polygon: false,
       });
       // 多角形描画中の場合はキャンセル
       if (selectedTool === "polygon" && polygonPoints.length > 0) {
@@ -169,17 +183,15 @@ export function DocumentViewer({
       return;
     }
 
-    // 矢印の場合（斜線なし）
+    // 矢印の場合
     if (tool === "arrow") {
       if (selectedTool === "arrow") {
         setSelectedTool(null);
-        setSelectedToolHatched(false);
         if (onToolChange) {
           onToolChange(null);
         }
       } else {
         setSelectedTool("arrow");
-        setSelectedToolHatched(false);
         if (onToolChange) {
           onToolChange("arrow");
         }
@@ -187,41 +199,27 @@ export function DocumentViewer({
       return;
     }
 
-    // 斜線対応図形（rectangle, circle, polygon）の3段階切り替え
+    // 図形（rectangle, circle, polygon）の2段階切り替え
     if (tool && ["rectangle", "circle", "polygon"].includes(tool)) {
-      const originalTool = tool; // 元のツール名を保持
       const currentState = toolStates[tool];
-      let newState: "normal" | "hatched" | null;
-      let hatched = false;
-      let newSelectedTool: ToolType | null = tool;
-
-      if (currentState === null) {
-        newState = "normal";
-        hatched = false;
-      } else if (currentState === "normal") {
-        newState = "hatched";
-        hatched = true;
-      } else {
-        newState = null;
-        newSelectedTool = null;
-      }
+      const newState = !currentState;
+      const newSelectedTool = newState ? tool : null;
 
       // 多角形描画中の場合のキャンセル処理
       if (
         selectedTool === "polygon" &&
         polygonPoints.length > 0 &&
-        (newSelectedTool !== "polygon" || newState === null)
+        newSelectedTool !== "polygon"
       ) {
         if (polygonCancelRef.current) {
           polygonCancelRef.current();
         }
       }
 
-      setToolStates((prev) => ({ ...prev, [originalTool]: newState }));
+      setToolStates((prev) => ({ ...prev, [tool]: newState }));
       setSelectedTool(newSelectedTool);
-      setSelectedToolHatched(hatched);
       if (onToolChange) {
-        onToolChange(newSelectedTool, hatched);
+        onToolChange(newSelectedTool);
       }
     }
   };
@@ -427,7 +425,6 @@ export function DocumentViewer({
                       documentId={document.id}
                       pageNumber={pageNumber}
                       selectedTool={selectedTool as ShapeType}
-                      selectedToolHatched={selectedToolHatched}
                       onPolygonStateChange={handlePolygonStateChange}
                       polygonCompleteRef={polygonCompleteRef}
                       polygonCancelRef={polygonCancelRef}
@@ -502,14 +499,12 @@ export function DocumentViewer({
                   </>
                 )}
 
-                {selectedTool === "rectangle" &&
-                  `四角形描画モード${selectedToolHatched ? "（斜線付き）" : ""}`}
-                {selectedTool === "circle" &&
-                  `円描画モード${selectedToolHatched ? "（斜線付き）" : ""}`}
+                {selectedTool === "rectangle" && "四角形描画モード"}
+                {selectedTool === "circle" && "円描画モード"}
                 {selectedTool === "arrow" && "矢印描画モード"}
                 {selectedTool === "polygon" && (
                   <>
-                    多角形描画モード{selectedToolHatched ? "（斜線付き）" : ""}
+                    多角形描画モード
                     {polygonPoints.length > 0 && (
                       <span
                         style={{
@@ -623,10 +618,6 @@ export function DocumentViewer({
                 },
               ].map((tool) => {
                 const isSelected = selectedTool === tool.value;
-                const toolState = tool.hatchIcon
-                  ? toolStates[tool.value]
-                  : null;
-                const isHatched = toolState === "hatched";
 
                 // 境界線と背景色の決定
                 let borderColor = "#d1d5db";
@@ -634,14 +625,8 @@ export function DocumentViewer({
                 let buttonTitle = tool.label;
 
                 if (isSelected) {
-                  if (isHatched) {
-                    borderColor = "#ef4444";
-                    backgroundColor = "#fef2f2";
-                    buttonTitle = `${tool.label}（斜線付き）`;
-                  } else {
-                    borderColor = "#3b82f6";
-                    backgroundColor = "#eff6ff";
-                  }
+                  borderColor = "#3b82f6";
+                  backgroundColor = "#eff6ff";
                 }
 
                 return (
@@ -666,31 +651,7 @@ export function DocumentViewer({
                       overflow: "hidden",
                     }}
                   >
-                    {/* 斜線背景パターン */}
-                    {isHatched && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          backgroundImage: `repeating-linear-gradient(
-                            45deg,
-                            transparent,
-                            transparent 2px,
-                            ${borderColor} 2px,
-                            ${borderColor} 4px
-                          )`,
-                          opacity: 0.3,
-                          zIndex: 1,
-                        }}
-                      />
-                    )}
-                    {/* アイコン（常に通常アイコン） */}
-                    <span style={{ position: "relative", zIndex: 2 }}>
-                      {tool.icon}
-                    </span>
+                    {tool.icon}
                   </button>
                 );
               })}
