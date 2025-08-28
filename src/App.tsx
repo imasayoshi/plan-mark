@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DocumentManagement } from "./features/document/DocumentManagement";
+import { DocumentManagement } from "./features/document/components/DocumentManagement";
 
 import { DocumentViewer } from "./features/document/components/DocumentViewer";
 import type { DocumentType } from "./features/document/types/document";

@@ -1,14 +1,10 @@
-interface AutoAdjustButtonProps {
-  onClick: () => void;
-  isAdjusting: boolean;
-  hasCollisions: boolean;
-}
+import type { AutoAdjustButtonPropsType } from "../types/auto-adjust";
 
 export function AutoAdjustButton({
   onClick,
   isAdjusting,
   hasCollisions,
-}: AutoAdjustButtonProps) {
+}: AutoAdjustButtonPropsType) {
   return (
     <button
       onClick={onClick}

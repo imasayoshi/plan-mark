@@ -68,3 +68,31 @@ export interface ShapeUpdateType {
   color?: string;
   strokeWidth?: number;
 }
+
+export interface DrawingLayerPropsType {
+  documentId: string;
+  pageNumber: number;
+  selectedTool: ShapeType | null;
+  onShapeCreated?: (shape: Shape) => void;
+  onPolygonStateChange?: (points: Array<{ x: number; y: number }>) => void;
+  polygonCompleteRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
+  polygonCancelRef?: React.MutableRefObject<(() => void) | null>;
+}
+
+export interface ShapeComponentPropsType {
+  shape: Shape;
+  isSelected?: boolean;
+  onSelect?: (shape: Shape) => void;
+  onMove?: (shape: Shape, deltaX: number, deltaY: number) => void;
+  onMoveEnd?: (shape: Shape, deltaX: number, deltaY: number) => void;
+}
+
+export interface ShapeActionsPropsType {
+  selectedShape: Shape | null;
+  onDelete: (shape: Shape) => void;
+}
+
+export interface PolygonRendererPropsType {
+  polygonPoints: Array<{ x: number; y: number }>;
+  selectedTool: ShapeType | null;
+}

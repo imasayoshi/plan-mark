@@ -37,3 +37,18 @@ export interface CollisionDetectionResultType {
   overlaps: OverlapInfoType[];
   totalOverlapArea: number;
 }
+
+export interface AutoAdjustButtonPropsType {
+  onClick: () => void;
+  isAdjusting: boolean;
+  hasCollisions: boolean;
+}
+
+export interface UseAutoAdjustReturnType {
+  isAdjusting: boolean;
+  adjustAnnotations: (
+    annotations: AnnotationType[],
+    containerBounds: BoundsType
+  ) => Promise<AdjustmentResultType[]>;
+  checkCollisions: (annotations: AnnotationType[]) => boolean;
+}

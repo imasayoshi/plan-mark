@@ -1,18 +1,10 @@
 import type {
-  Shape,
   RectangleShape,
   CircleShape,
   ArrowShape,
   PolygonShape,
+  ShapeComponentPropsType,
 } from "../types/shape";
-
-interface ShapeComponentProps {
-  shape: Shape;
-  isSelected?: boolean;
-  onSelect?: (shape: Shape) => void;
-  onMove?: (shape: Shape, deltaX: number, deltaY: number) => void;
-  onMoveEnd?: (shape: Shape, deltaX: number, deltaY: number) => void;
-}
 
 function RectangleComponent({
   shape,
@@ -20,7 +12,7 @@ function RectangleComponent({
   onSelect,
   onMove,
   onMoveEnd,
-}: ShapeComponentProps & { shape: RectangleShape }) {
+}: ShapeComponentPropsType & { shape: RectangleShape }) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -90,7 +82,7 @@ function CircleComponent({
   onSelect,
   onMove,
   onMoveEnd,
-}: ShapeComponentProps & { shape: CircleShape }) {
+}: ShapeComponentPropsType & { shape: CircleShape }) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -159,7 +151,7 @@ function ArrowComponent({
   onSelect,
   onMove,
   onMoveEnd,
-}: ShapeComponentProps & { shape: ArrowShape }) {
+}: ShapeComponentPropsType & { shape: ArrowShape }) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -245,7 +237,7 @@ function PolygonComponent({
   onSelect,
   onMove,
   onMoveEnd,
-}: ShapeComponentProps & { shape: PolygonShape }) {
+}: ShapeComponentPropsType & { shape: PolygonShape }) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -290,9 +282,12 @@ function PolygonComponent({
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  const points = shape.points
-    .map((point) => `${shape.x + point.x},${shape.y + point.y}`)
-    .join(" ");
+  // 配列形式のpointsをSVG用の文字列に変換（型安全性を確保）
+  const points = Array.isArray(shape.points)
+    ? shape.points
+        .map((point) => `${shape.x + point.x},${shape.y + point.y}`)
+        .join(" ")
+    : "";
 
   return (
     <g>
@@ -316,7 +311,7 @@ export function ShapeRenderer({
   onSelect,
   onMove,
   onMoveEnd,
-}: ShapeComponentProps) {
+}: ShapeComponentPropsType) {
   const commonProps = { shape, isSelected, onSelect, onMove, onMoveEnd };
 
   switch (shape.type) {

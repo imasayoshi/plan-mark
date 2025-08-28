@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { DocumentUploader } from "./components/DocumentUploader";
-import { DocumentViewer } from "./components/DocumentViewer";
-import { documentService } from "./services/documentService";
+import { DocumentUploader } from "./DocumentUploader";
+import { DocumentViewer } from "./DocumentViewer";
+import { documentService } from "../services/documentService";
 import type {
   DocumentType,
   DocumentManagementPropsType,
-} from "./types/document";
+} from "../types/document";
 
 export function DocumentManagement({
   onDocumentSelect,

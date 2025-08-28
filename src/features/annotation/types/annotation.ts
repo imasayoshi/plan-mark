@@ -54,3 +54,37 @@ export interface EditPreviewPropsType {
   onCompositionStart: () => void;
   onCompositionEnd: (e: React.CompositionEvent<HTMLTextAreaElement>) => void;
 }
+
+export interface AnnotationLayerPropsType {
+  documentId: string;
+  pageNumber: number;
+  selectedTool?: string | null;
+  annotations: AnnotationType[];
+  updateAnnotationOptimistic: (data: AnnotationUpdateType) => Promise<void>;
+  createAnnotation: (
+    data: AnnotationCreateType
+  ) => Promise<AnnotationType | null>;
+  deleteAnnotation: (id: string) => Promise<boolean>;
+  onStepChange?: (step: string, hasLeaderPoint: boolean) => void;
+  onCollisionChange?: (hasCollisions: boolean, isManualMove?: boolean) => void;
+}
+
+export interface AnnotationCreatorPropsType {
+  documentId: string;
+  pageNumber: number;
+  selectedTool?: string | null;
+  isEditing: boolean;
+  annotations: AnnotationType[];
+  pendingCommentButton: { x: number; y: number } | null;
+  onCreateAnnotation: (annotation: AnnotationType) => void;
+  onSetPendingButton: (position: { x: number; y: number } | null) => void;
+  onSetSelectedAnnotation: (annotation: AnnotationType | null) => void;
+}
+
+export interface AnnotationActionsPropsType {
+  selectedAnnotation: AnnotationType | null;
+  selectedTool?: string | null;
+  isEditing: boolean;
+  onEdit: (annotation: AnnotationType) => void;
+  onDelete: (annotation: AnnotationType) => void;
+}

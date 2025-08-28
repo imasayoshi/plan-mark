@@ -200,6 +200,31 @@ class ShapeService {
           updatedAt: data.updatedAt,
         };
       case "polygon":
+        // pointsの形式を適切にパース
+        let points = [
+          { x: 0, y: -40 },
+          { x: 30, y: 20 },
+          { x: -30, y: 20 },
+        ];
+
+        if (properties.points) {
+          if (Array.isArray(properties.points)) {
+            // 既に配列の場合
+            points = properties.points;
+          } else if (typeof properties.points === "string") {
+            // 文字列の場合はJSONパース
+            try {
+              points = JSON.parse(properties.points);
+            } catch (e) {
+              console.warn(
+                "Failed to parse polygon points:",
+                properties.points,
+                e
+              );
+            }
+          }
+        }
+
         return {
           id: data.id,
           documentId: data.documentId,
@@ -207,11 +232,7 @@ class ShapeService {
           type: "polygon",
           x: data.x,
           y: data.y,
-          points: properties.points || [
-            { x: 0, y: -40 },
-            { x: 30, y: 20 },
-            { x: -30, y: 20 },
-          ],
+          points: points,
           color: data.color,
           strokeWidth: data.strokeWidth,
           createdAt: data.createdAt,

@@ -1,16 +1,11 @@
 import { useState, useCallback } from "react";
 import { autoAdjustService } from "../services/autoAdjustService";
 import type { AnnotationType } from "../../annotation/types/annotation";
-import type { BoundsType, AdjustmentResultType } from "../types/auto-adjust";
-
-interface UseAutoAdjustReturnType {
-  isAdjusting: boolean;
-  adjustAnnotations: (
-    annotations: AnnotationType[],
-    containerBounds: BoundsType
-  ) => Promise<AdjustmentResultType[]>;
-  checkCollisions: (annotations: AnnotationType[]) => boolean;
-}
+import type {
+  BoundsType,
+  AdjustmentResultType,
+  UseAutoAdjustReturnType,
+} from "../types/auto-adjust";
 
 export function useAutoAdjust(): UseAutoAdjustReturnType {
   const [isAdjusting, setIsAdjusting] = useState(false);
